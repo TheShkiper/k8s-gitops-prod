@@ -1,0 +1,62 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: custom-project-alerts
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: project.application.rules
+      rules:
+        - alert: NginxDemoReplicasUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="demo-app", deployment="nginx-demo"} < 2
+          for: 2m
+          labels:
+            severity: warning
+            component: nginx-demo
+          annotations:
+            summary: "nginx-demo has less than 2 available replicas"
+            description: "nginx-demo deployment in demo-app namespace has less than 2 available replicas for more than 2 minutes."
+
+        - alert: DemoAppPodCrashLooping
+          expr: kube_pod_container_status_waiting_reason{namespace="demo-app", reason="CrashLoopBackOff"} > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: demo-app
+          annotations:
+            summary: "Pod in demo-app is CrashLoopBackOff"
+            description: "A container in demo-app namespace is stuck in CrashLoopBackOff."
+
+    - name: project.database.rules
+      rules:
+        - alert: PostgresClusterReplicasUnavailable
+          expr: kube_statefulset_status_replicas_ready{namespace="database", statefulset="acid-postgres"} < 3
+          for: 2m
+          labels:
+            severity: critical
+            component: postgresql
+          annotations:
+            summary: "PostgreSQL cluster has less than 3 ready replicas"
+            description: "StatefulSet acid-postgres has less than 3 ready pods. PostgreSQL HA may be degraded."
+
+        - alert: PostgresPatroniMasterMissing
+          expr: count(kube_pod_labels{namespace="database", label_spilo_role="master"}) != 1
+          for: 2m
+          labels:
+            severity: critical
+            component: patroni
+          annotations:
+            summary: "PostgreSQL Patroni master count is not equal to 1"
+            description: "There should be exactly one Patroni master pod in the database namespace."
+
+        - alert: DatabasePodCrashLooping
+          expr: kube_pod_container_status_waiting_reason{namespace="database", reason="CrashLoopBackOff"} > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: database
+          annotations:
+            summary: "Pod in database namespace is CrashLoopBackOff"
+            description: "A container in database namespace is stuck in CrashLoopBackOff."
