@@ -6,6 +6,7 @@ namespace: online-boutique
 resources:
   - namespace.yaml
   - kubernetes-manifests.yaml
+  - db-checker.yaml
 
 patches:
   - target:

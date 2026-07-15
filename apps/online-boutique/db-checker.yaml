@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-db-checker
+  labels:
+    app: postgres-db-checker
+    component: database-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-db-checker
+  template:
+    metadata:
+      labels:
+        app: postgres-db-checker
+        component: database-integration
+    spec:
+      containers:
+        - name: postgres-db-checker
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: online-boutique-postgres
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              echo "Starting Online Boutique PostgreSQL integration checker"
+
+              while true; do
+                echo "Checking connection to PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}"
+
+                PGPASSWORD="${POSTGRES_PASSWORD}" psql \
+                  -h "${POSTGRES_HOST}" \
+                  -p "${POSTGRES_PORT}" \
+                  -U "${POSTGRES_USER}" \
+                  -d "${POSTGRES_DB}" \
+                  -v ON_ERROR_STOP=1 <<SQL
+CREATE TABLE IF NOT EXISTS online_boutique_db_check (
+  id SERIAL PRIMARY KEY,
+  component TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+INSERT INTO online_boutique_db_check (component, message)
+VALUES ('online-boutique', 'database integration ok');
+
+SELECT id, component, message, created_at
+FROM online_boutique_db_check
+ORDER BY id DESC
+LIMIT 3;
+SQL
+
+                echo "Database write/read check completed successfully"
+                sleep 30
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
