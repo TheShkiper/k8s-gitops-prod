@@ -25,34 +25,37 @@ spec:
                 name: online-boutique-postgres
           command:
             - /bin/sh
-            - -ec
+            - -c
             - |
-              echo "Starting Online Boutique PostgreSQL integration checker"
+              set -e
+
+              echo "Starting PostgreSQL integration checker"
 
               while true; do
-                echo "Checking connection to PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT}"
+                echo "Connecting to PostgreSQL: ${POSTGRES_HOST}:${POSTGRES_PORT}"
 
                 PGPASSWORD="${POSTGRES_PASSWORD}" psql \
                   -h "${POSTGRES_HOST}" \
                   -p "${POSTGRES_PORT}" \
                   -U "${POSTGRES_USER}" \
                   -d "${POSTGRES_DB}" \
-                  -v ON_ERROR_STOP=1 <<SQL
-CREATE TABLE IF NOT EXISTS online_boutique_db_check (
-  id SERIAL PRIMARY KEY,
-  component TEXT NOT NULL,
-  message TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+                  -v ON_ERROR_STOP=1 \
+                  -c "CREATE TABLE IF NOT EXISTS online_boutique_db_check (id SERIAL PRIMARY KEY, component TEXT NOT NULL, message TEXT NOT NULL, created_at TIMESTAMPTZ DEFAULT now());"
 
-INSERT INTO online_boutique_db_check (component, message)
-VALUES ('online-boutique', 'database integration ok');
+                PGPASSWORD="${POSTGRES_PASSWORD}" psql \
+                  -h "${POSTGRES_HOST}" \
+                  -p "${POSTGRES_PORT}" \
+                  -U "${POSTGRES_USER}" \
+                  -d "${POSTGRES_DB}" \
+                  -v ON_ERROR_STOP=1 \
+                  -c "INSERT INTO online_boutique_db_check (component, message) VALUES ('online-boutique', 'database integration ok');"
 
-SELECT id, component, message, created_at
-FROM online_boutique_db_check
-ORDER BY id DESC
-LIMIT 3;
-SQL
+                PGPASSWORD="${POSTGRES_PASSWORD}" psql \
+                  -h "${POSTGRES_HOST}" \
+                  -p "${POSTGRES_PORT}" \
+                  -U "${POSTGRES_USER}" \
+                  -d "${POSTGRES_DB}" \
+                  -c "SELECT id, component, message, created_at FROM online_boutique_db_check ORDER BY id DESC LIMIT 3;"
 
                 echo "Database write/read check completed successfully"
                 sleep 30
